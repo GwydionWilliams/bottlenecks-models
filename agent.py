@@ -3,15 +3,25 @@ from sim_funs import find_state, define_primitive_actions
 import copy
 
 
+class Option():
+    def __init__(self, params):
+        self.s_init = params["s_init"]
+        self.s_term = params["s_term"]
+        self.pi = params["pi"]
+
+
 class Agent():
     def __init__(self, alpha, gamma, action_lbls, policy, epsilon, has_history):
         self.state = None  # state of the agent in cartesian coords
         self.s_i = 0  # the index of the agent's current state
         self.s_prev = self.state  # the agent's state at t-1
         self.s_hist = self.state  # the agent's state at t-2
+
         self.has_history = has_history
         self.state_history = ["BO"]
         self.origin = None
+
+        self.options = options
 
         self.action_lbls = action_lbls  # labels of all primitive actions
         self.num_actions = len(self.action_lbls)  # number of primitive actions
@@ -332,13 +342,3 @@ class Agent():
         self.s_hist = self.state[:]
 
         self.SG_visited = False
-
-
-class Option():
-    def __init__(self, option_params):
-        self.label = option_params["label"]
-
-        self.s_init = option_params["s_init"]
-        self.s_term = option_params["s_term"]
-
-        self.pi = option_params["pi"]
