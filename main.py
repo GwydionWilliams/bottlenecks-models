@@ -1,63 +1,54 @@
 from simulation import Simulation
-from sim_funs import build_env, define_options, write_data
+from sim_funs import buildEnv, definePrimitiveActions, defineOptions, writeData
 import numpy as np
 
 # -----------------------------------------------------------------------------
 # 1. INITIALISE PARAMETERS ----------------------------------------------------
 #    i.   SIMULATION MODE
-sim_params = {
-    "num_trials": int(2e3),
-    "task_mode": "hierarchical",
-    "agent_class": "abstract-hierarchical",
-    "agent_represents_history": False,
-    "regime": ["repeat", "alternate"]
+simParams = {
+    "numTrials": int(2e3),
+    "taskMode": "hierarchical",
+    "dataPath": "./data/placeholder"
 }
 
-data_dir = "./data/"
-file_name = "31-MFA0-hierEnv"
-
-#    ii.  AGENT & ENVIRONMENT
-action_lbls = ["NE", "SE", "SW", "NW"]
-alphas = np.arange(0.02, 1, step=.02)
-gamma = .5
-policy = "e-greedy"
-epsilon = {
-    "start": 0.2,
-    "end": 0.01,
-    "decay": 100
+agentParams = {
+    "class": "abstract-hierarchical",
+    "policy": "softmax",
+    "gamma": .5,
+    "alpha": np.arange(0.02, 1, step=.02)
 }
+
+envParams = {
+    "regimes": ["repeat", "alternate"]
+}
+#
+# data_dir = "./data/"
+# file_name = "31-MFA0-hierEnv"
+#
+# #    ii.  AGENT & ENVIRONMENT
+# alphas = np.arange(0.02, 1, step=.02)
+# gamma = .5
+# policy = "softmax"
+# options = defineOptions(simParams["agentClass"], simParams["taskMode"])
+#
+# states = buildEnv(simParams["task_mode"])
 
 for alpha in alphas:
-    print("          RUNNING SIM FOR {0}".format(alpha))
-    states, state_labels = build_env(sim_params["task_mode"])
-    labels, s_init, s_term, pi = define_options(
-        sim_params["agent_class"], sim_params["task_mode"]
-    )
 
-    agent_params = {
-        "alpha": alpha,
-        "gamma": gamma,
-        "action_lbls": action_lbls,
-        "policy": policy,
-        "epsilon": epsilon,
-        "agent_class": sim_params["agent_class"],
-        "has_history": sim_params["agent_represents_history"]
-    }
-
-    env_params = {
-        "states": states,
-        "state_labels": state_labels
-    }
-
-    option_params = {
-        "label": labels,
-        "s_init": s_init,
-        "s_term": s_term,
-        "pi": pi,
-    }
+    # agentParams = {
+    #     "alpha": alpha,
+    #     "gamma": gamma,
+    #     "options": options,
+    #     "policy": policy,
+    #     "agent_class": simParams["agentClass"]
+    # }
+    #
+    # env_params = {
+    #     "states": states
+    # }
 
     #    iv. CONTROLLER
-    sim = Simulation(agent_params, env_params, option_params, sim_params)
+    sim = Simulation(simParams, agentParams, envParams)
 
     # -------------------------------------------------------------------------
     # 2. RUN SIMULATION -------------------------------------------------------

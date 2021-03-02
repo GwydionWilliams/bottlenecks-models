@@ -1,17 +1,45 @@
-import numpy as np
+# import numpy as np
 
 
 class Environment():
-    def __init__(self, states, state_lbls):
+    def __init__(self, params):
         self.T = None
-        self.states = states
-        self.state_lbls = state_lbls
-        self.num_states = len(states)
-        self.state_i = np.arange(self.num_states)
 
-    def init_pR(self):
-        self.pR = np.zeros(self.num_states)
+        self.states = params["states"]
+        self.state = None
 
-    def place_r(self, G_side, SG_side, SG_i):
-        self.pR[self.state_lbls.index("G" + G_side)] = 1
+        self.pR = {}
+        for s in self.states.keys:
+            self.pR[s] = 0
+
+        self.SG = None
+        self.G = None
+
+    def update(self):
+        newState = self.findState(self.state["coords"])
+        self.state["label"] = newState
+
+    def placeReward(self, G_side, SG_side):
+        s_origin = "B0" + SG_side
+        self.state = {
+            "label": s_origin,
+            "coords": self.state[s_origin]
+        }
+
+        self.G = "G" + G_side
         self.SG = "SG" + SG_side
+
+        self.pR["G" + G_side] = 1
+
+    def findState(self, state):
+        for stateLabel, stateCoords in self.states.items():
+            if state == stateCoords:
+                return(stateLabel)
+
+    def deliverReward(self, SG_visited):
+        if SG_visited:
+            r = self.pR[self.state["label"]]
+        else:
+            r = 0
+
+        return(r)

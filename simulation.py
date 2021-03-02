@@ -1,25 +1,24 @@
 import numpy as np
 from agent import Agent, Option
 from environment import Environment
-from sim_funs import find_state
+from sim_funs import find_state, defineOptions
 
 
 class Simulation():
-    def __init__(self, agent_params, env_params, option_params, sim_params):
-        self.task_mode = sim_params["task_mode"]
-        self.num_trials = sim_params["num_trials"]
-        self.regimes = sim_params["regime"]
-        self.active_regime = self.regimes[0]
+    def __init__(self, simParams, agentParams, envParams):
+        self.taskMode = simParams["task_mode"]
+        self.numTrials = simParams["numTrials"]
+        self.regimes = simParams["regimes"]
+        self.activeRegime = self.regime[0]
 
-        self.agent = Agent(
-            agent_params["alpha"],
-            agent_params["gamma"],
-            agent_params["action_lbls"],
-            agent_params["policy"],
-            agent_params["epsilon"],
-            agent_params["has_history"],
-        )
-        self.agent.init_primitive_actions(self.task_mode)
+        self.env = Environment(envParams)
+
+        options = defineOptions(simParams["agentClass"],
+                                simParams["taskMode"], self.env.states.keys)
+        agentParams.update({"options": options})
+
+        self.agent = Agent(agentParams, self.env)
+        # self.agent.init_primitive_actions(self.task_mode)
 
         num_options = len(option_params["label"])
         for n in range(num_options):
@@ -30,12 +29,6 @@ class Simulation():
             self.agent.add_option(option)
         if self.agent.has_history:
             self.agent.endow_history(len(env_params["states"]))
-
-        self.env = Environment(
-            env_params["states"],
-            env_params["state_labels"]
-        )
-        self.env.init_pR()
 
         self.SG_sides = ["L", "R"]
         self.G_sides = ["L", "R"]

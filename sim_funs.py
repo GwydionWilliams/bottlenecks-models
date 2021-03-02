@@ -1,16 +1,17 @@
 import csv
 import numpy as np
-from agent import Option
+import pandas as pd
+from agent import Option, PrimitiveAction
 
 
-def buildEnv(mode):
-    if mode is "hierarchical":
+def buildEnv(taskMode):
+    if taskMode is "hierarchical":
         states = {
             "B0L": [0, 0, 0],
             "B0R": [0, 0, 1]
         }
 
-    elif mode is "flat":
+    elif taskMode is "flat":
         states = {
             "B0": [0, 0, 0]
         }
@@ -28,7 +29,7 @@ def buildEnv(mode):
     return states
 
 
-def definePrimitiveActions(mode):
+def definePrimitiveActions(taskMode, states):
     actionLbls = ["NE", "SE", "SW", "NW"]
 
     s_init = {
@@ -45,7 +46,7 @@ def definePrimitiveActions(mode):
         actionLbls[3]: [0, 0, 1, 0, 1, 1, 0, 1, 0]
     }
 
-    if mode is "flat":
+    if taskMode is "flat":
         for a in actionLbls:
             s_init[a] = s_init[a][1:]
             s_term[a] = s_term[a][1:]
@@ -63,21 +64,23 @@ def definePrimitiveActions(mode):
     primitiveActions = {}
     for a in actionLbls:
         params = {
-            "s_init": s_init[a],
-            "s_term": s_term[a],
-            "pi": pi[a]
+            "s_init": pd.DataFrame(s_init[a], index=states).transpose(),
+            "s_term": pd.DataFrame(s_term[a], index=states).transpose(),
+            "pi": pd.DataFrame(pi[a], columns=states, index=actionLbls)
         }
 
-        primitiveActions[a] = Option(params)
+        primitiveActions[a] = PrimitiveAction(params)
 
     return primitiveActions
 
 
-def defineOptions(agent_class, task_mode):
-    if agent_class is "flat":
+def defineOptions(agentClass, taskMode, states):
+    options = definePrimitiveActions(taskMode, states)
+
+    if agentClass is "flat":
         optionLbls = s_init = s_term = pi = []
 
-    elif "hierarchical" in agent_class:
+    elif "hierarchical" in agentClass:
         optionLbls = ["B0_B1_L", "B0_B1_R",
                       "B0_GL_REP", "B0_GR_REP",
                       "B0_GL_ALT", "B0_GR_ALT"]
@@ -152,7 +155,7 @@ def defineOptions(agent_class, task_mode):
             ]).reshape((6, 9)),
         }
 
-        if "abstract" in agent_class:
+        if "abstract" in agentClass:
             optionLbls += ["REP", "ALT"]
 
             s_init.update({
@@ -193,18 +196,19 @@ def defineOptions(agent_class, task_mode):
                 ]).reshape((10, 9))
             })
 
-        if task_mode is "flat":
+        if taskMode is "flat":
             for o in range(len(labels)):
                 s_init[o] = s_init[o][1:]
                 s_term[o] = s_term[o][1:]
                 pi[o] = pi[o][:, 1:]
 
-    options = {}
     for o in optionLbls:
         params = {
-            "s_init": s_init[o],
-            "s_term": s_term[o],
-            "pi": pi[o]
+            "s_init": pd.DataFrame(s_init[o], index=states).transpose(),
+            "s_term": pd.DataFrame(s_term[o], index=states).transpose(),
+            "pi": pd.DataFrame(
+                pi[o], columns=states, index=optionLbls[0:(pi[o].shape[0]-1)]
+            )
         }
 
         options[o] = Option(params)
