@@ -1,4 +1,4 @@
-# import numpy as np
+import copy
 
 
 class Environment():
@@ -9,21 +9,21 @@ class Environment():
         self.state = None
 
         self.pR = {}
-        for s in self.states.keys:
+        for s in self.states.keys():
             self.pR[s] = 0
 
         self.SG = None
         self.G = None
 
     def update(self):
-        newState = self.findState(self.state["coords"])
+        newState = self.findState()
         self.state["label"] = newState
 
     def placeReward(self, G_side, SG_side):
         s_origin = "B0" + SG_side
         self.state = {
             "label": s_origin,
-            "coords": self.state[s_origin]
+            "coords": copy.deepcopy(self.states[s_origin])
         }
 
         self.G = "G" + G_side
@@ -31,9 +31,10 @@ class Environment():
 
         self.pR["G" + G_side] = 1
 
-    def findState(self, state):
+    def findState(self):
+        print(self.state)
         for stateLabel, stateCoords in self.states.items():
-            if state == stateCoords:
+            if self.state["coords"] == stateCoords:
                 return(stateLabel)
 
     def deliverReward(self, SG_visited):

@@ -14,8 +14,9 @@ simParams = {
 agentParams = {
     "class": "abstract-hierarchical",
     "policy": "softmax",
+    "tau": .1,
     "gamma": .5,
-    "alpha": np.arange(0.02, 1, step=.02)
+    "alpha": .5   # np.arange(0.02, 1, step=.02)
 }
 
 envParams = {
@@ -33,63 +34,63 @@ envParams = {
 #
 # states = buildEnv(simParams["task_mode"])
 
-for alpha in agentParams["alpha"]:
+# for alpha in agentParams["alpha"]:
 
-    # agentParams = {
-    #     "alpha": alpha,
-    #     "gamma": gamma,
-    #     "options": options,
-    #     "policy": policy,
-    #     "agent_class": simParams["agentClass"]
-    # }
-    #
-    # env_params = {
-    #     "states": states
-    # }
+# agentParams = {
+#     "alpha": alpha,
+#     "gamma": gamma,
+#     "options": options,
+#     "policy": policy,
+#     "agent_class": simParams["agentClass"]
+# }
+#
+# env_params = {
+#     "states": states
+# }
 
-    #    iv. CONTROLLER
-    sim = Simulation(simParams, agentParams, envParams)
+#    iv. CONTROLLER
+sim = Simulation(simParams, agentParams, envParams)
 
-    # -------------------------------------------------------------------------
-    # 2. RUN SIMULATION -------------------------------------------------------
-    for sim.trialNum in range(sim.numTrials):
+# -------------------------------------------------------------------------
+# 2. RUN SIMULATION -------------------------------------------------------
+for sim.trialNum in range(sim.numTrials):
         # print("_________________________NEW  TRIAL_________________________")
 
-        sim.setupTrial()
+    sim.setupTrial()
 
-        sim.agent.wakeUp()
+    sim.agent.wakeUp(sim.env)
 
-        while sim.agent.r is None:
-            pass
+    while sim.agent.awake:
+        pass
 
-        print("trial completed")
+    print("trial completed ----------------------------------------------")
 
-        # while sim.agent.terminationReached is not True:
+    # while sim.agent.terminationReached is not True:
 
-        # while sim.agent.under_primitive_control is False:
-        # sim.agent.select_option(sim.env)
+    # while sim.agent.under_primitive_control is False:
+    # sim.agent.select_option(sim.env)
 
-        # sim.agent.move(sim.env)
-        # sim.agent.collect_reward(sim.env, sim.task_mode)
-        # sim.agent.check_for_termination()
-        # if sim.agent.under_Q_control:
-        #     sim.agent.update_Q(sim.env)
-        # sim.norm_Q()
+    # sim.agent.move(sim.env)
+    # sim.agent.collect_reward(sim.env, sim.task_mode)
+    # sim.agent.check_for_termination()
+    # if sim.agent.under_Q_control:
+    #     sim.agent.update_Q(sim.env)
+    # sim.norm_Q()
 
-        # sim.summarise_step()
+    # sim.summarise_step()
 
-        # sim.t += 1
+    # sim.t += 1
 
-        # sim.record_trial()
+    # sim.record_trial()
 
-        if sim.trialNum != 0:
-            # if ((sim.n_trial % (sim.num_trials / 10)) == 0) or \
-            #         (sim.n_trial == (sim.num_trials-1)):
-            #     sim.summarise_chunk()
+    if sim.trialNum != 0:
+        # if ((sim.n_trial % (sim.num_trials / 10)) == 0) or \
+        #         (sim.n_trial == (sim.num_trials-1)):
+        #     sim.summarise_chunk()
 
-            if ((sim.trialNum % (sim.numTrials / 2)) == 0):
-                sim.switchRegime()
+        if ((sim.trialNum % (sim.numTrials / 2)) == 0):
+            sim.switchRegime()
 
-    # -------------------------------------------------------------------------
-    # 3. SAVE RESULTS ---------------------------------------------------------
-    # write_data(sim, data_dir, file_name)
+# -------------------------------------------------------------------------
+# 3. SAVE RESULTS ---------------------------------------------------------
+# write_data(sim, data_dir, file_name)

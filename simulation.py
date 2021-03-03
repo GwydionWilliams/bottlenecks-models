@@ -1,22 +1,26 @@
 import numpy as np
 from agent import Agent, Option
 from environment import Environment
-from sim_funs import find_state, defineOptions
+from sim_funs import buildEnv, defineOptions
 
 
 class Simulation():
     def __init__(self, simParams, agentParams, envParams):
         self.taskMode = simParams["taskMode"]
         self.numTrials = simParams["numTrials"]
-        self.regimes = simParams["regimes"]
-        self.activeRegime = self.regime[0]
+        self.trialNumber = 0
+        self.regimes = envParams["regimes"]
+        self.activeRegime = self.regimes[0]
+
+        states = buildEnv(self.taskMode)
+        envParams.update({"states": states})
 
         self.env = Environment(envParams)
 
         options = defineOptions(
-            simParams["agentClass"],
+            agentParams["class"],
             simParams["taskMode"],
-            self.env.states.keys
+            self.env.states.keys()
         )
 
         agentParams.update({"options": options})
@@ -63,7 +67,7 @@ class Simulation():
         #     )
 
     def setupTrial(self):
-        self.agent.reset()
+        self.agent.sleep()
         # self.agent.termination_reached = False
 
         if self.taskMode is "hierarchical":
