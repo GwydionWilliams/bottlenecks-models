@@ -33,7 +33,7 @@ class Agent():
         # self.option_lbls = copy.deepcopy(action_lbls)  # labels of all available options
         # self.action_history = []
 
-        self.r = 0  # the reward experienced by the agent in it's current state
+        self.r = None  # the reward experienced by the agent in it's current state
 
         self.alpha = params["alpha"]  # learning rate
         self.gamma = params["gamma"]  # discounting factor
@@ -182,8 +182,11 @@ class Agent():
             # else:
             self.selectOption()
 
-    def update_action_history(self, choice):
-        self.action_history.append(self.option_lbls[choice])
+        else:
+            self.move()
+
+    # def update_action_history(self, choice):
+    #     self.action_history.append(self.option_lbls[choice])
 
     def move(self, env):
         '''
