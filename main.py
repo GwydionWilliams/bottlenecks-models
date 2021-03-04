@@ -61,9 +61,13 @@ for sim.trialNum in range(sim.numTrials):
     sim.agent.wakeUp(sim.env)
 
     while sim.agent.awake:
-        pass
+        sim.agent.selectOption(sim.env)
+        sim.agent.move(sim.env)
+        sim.agent.collectReward(sim.env)
+        sim.agent.checkForTermination(sim.env)
+        # print("\n\n\n\n\n")
 
-    print("trial completed ----------------------------------------------")
+    print("trial ", sim.trialNum, " completed in ", sim.agent.stepCounter, " steps")
 
     # while sim.agent.terminationReached is not True:
 

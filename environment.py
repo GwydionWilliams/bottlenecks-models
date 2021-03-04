@@ -18,6 +18,7 @@ class Environment():
     def update(self):
         newState = self.findState()
         self.state["label"] = newState
+        # print("new location is ", self.state)
 
     def placeReward(self, G_side, SG_side):
         s_origin = "B0" + SG_side
@@ -32,7 +33,6 @@ class Environment():
         self.pR["G" + G_side] = 1
 
     def findState(self):
-        print(self.state)
         for stateLabel, stateCoords in self.states.items():
             if self.state["coords"] == stateCoords:
                 return(stateLabel)

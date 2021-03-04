@@ -33,10 +33,10 @@ def definePrimitiveActions(taskMode, states):
     actionLbls = ["NE", "SE", "SW", "NW"]
 
     s_init = {
-        actionLbls[0]: [1, 1, 1, 1, 0, 1, 0, 0, 0],
-        actionLbls[1]: [0, 0, 1, 0, 1, 1, 0, 1, 0],
-        actionLbls[2]: [0, 0, 0, 1, 0, 1, 1, 0, 1],
-        actionLbls[3]: [1, 1, 1, 1, 0, 1, 0, 0, 0]
+        actionLbls[0]: [1, 1, 1, 1, np.NAN, 1, np.NAN, np.NAN, np.NAN],
+        actionLbls[1]: [np.NAN, np.NAN, 1, np.NAN, 1, 1, np.NAN, 1, np.NAN],
+        actionLbls[2]: [np.NAN, np.NAN, np.NAN, 1, np.NAN, 1, 1, np.NAN, 1],
+        actionLbls[3]: [1, 1, 1, 1, np.NAN, 1, np.NAN, np.NAN, np.NAN]
     }
 
     s_term = {
@@ -56,7 +56,9 @@ def definePrimitiveActions(taskMode, states):
 
     pi = {}
     for i, a in enumerate(actionLbls):
-        pi[a] = np.zeros((numActions, numStates))
+        pi[a] = np.empty((numActions, numStates))
+        pi[a][:] = np.NAN
+
         for s in range(numStates):
             if s_init[a][s] == 1:
                 pi[a][i, s] = 1
@@ -88,12 +90,12 @@ def defineOptions(agentClass, taskMode, states):
         allOptions = list(options.keys()) + optionLbls
 
         s_init = {
-            optionLbls[0]: np.array([1, 1, 0, 0, 0, 0, 0, 0, 0]),
-            optionLbls[1]: np.array([1, 1, 0, 0, 0, 0, 0, 0, 0]),
-            optionLbls[2]: np.array([1, 1, 0, 0, 0, 0, 0, 0, 0]),
-            optionLbls[3]: np.array([1, 1, 0, 0, 0, 0, 0, 0, 0]),
-            optionLbls[4]: np.array([1, 1, 0, 0, 0, 0, 0, 0, 0]),
-            optionLbls[5]: np.array([1, 1, 0, 0, 0, 0, 0, 0, 0])
+            optionLbls[0]: np.array([1, 1, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN]),
+            optionLbls[1]: np.array([1, 1, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN]),
+            optionLbls[2]: np.array([1, 1, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN]),
+            optionLbls[3]: np.array([1, 1, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN]),
+            optionLbls[4]: np.array([1, 1, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN]),
+            optionLbls[5]: np.array([1, 1, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN])
         }
 
         s_term = {
@@ -167,8 +169,8 @@ def defineOptions(agentClass, taskMode, states):
             optionLbls += ["REP", "ALT"]
 
             s_init.update({
-                optionLbls[6]: np.array([1, 1, 0, 0, 0, 0, 0, 0, 0]),
-                optionLbls[7]: np.array([1, 1, 0, 0, 0, 0, 0, 0, 0]),
+                optionLbls[6]: np.array([1, 1, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN]),
+                optionLbls[7]: np.array([1, 1, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN]),
             })
 
             s_term.update({

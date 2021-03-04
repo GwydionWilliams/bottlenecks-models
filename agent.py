@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 # from sim_funs import find_state, define_primitive_actions
-# import copy
+import copy
 
 
 class Option():
@@ -60,6 +60,8 @@ class Agent():
 
         self.activeOptions = []
 
+        self.stepCounter = 0
+
     # def endowHistory(self, num_states):
     #     full_Q = []
     #     for i in range(num_states):
@@ -69,10 +71,9 @@ class Agent():
 
     def wakeUp(self, env):
         self.awake = True
-
         self.s_origin = env.state["coords"]
-
-        self.selectOption(env)
+        self.stepCounter = 0
+        # self.selectOption(env)
 
     def selectOption(self, env):
         '''
@@ -83,16 +84,21 @@ class Agent():
         Expects     env - an object of class Environment
 
         '''
-        print("selecting")
+        # print("selecting from ", env.state["label"])
 
         if self.activeOptions == []:
             pi = self.Q
+            isDeterministic = False
         else:
             pi = self.options[self.activeOptions[-1]["label"]].pi
+            isDeterministic = True
+
+        # print(pi)
 
         Q_sa = pi.loc[:, env.state["label"]].squeeze()
 
-        if self.selectionPolicy == "greedy":
+        if self.selectionPolicy == "greedy" or isDeterministic:
+            # print("determinstic selection...")
             Q_max = Q_sa.transform(lambda x: x == x.max()).astype('bool')
             maxRow = Q_sa.loc[Q_max]
             if len(maxRow) > 1:
@@ -108,14 +114,18 @@ class Agent():
             choice = Q_sa.sample(weights=Q_sa).index[0]
 
         self.activeOptions.append(
-            {"label": choice, "stateInitialised": env.state}
+            {"label": choice, "stateInitialised": copy.deepcopy(env.state)}
         )
 
-        if isinstance(self.options[choice], PrimitiveAction) is False:
-            self.selectOption(env)
+        # print("selected ", choice)
+        # print("is prim? ", isinstance(self.options[choice], PrimitiveAction))
 
-        else:
-            self.move(env)
+        if isinstance(self.options[choice], PrimitiveAction) is False:
+            # print("reselect")
+            self.selectOption(env)
+        #
+        # else:
+        #     self.move(env)
 
     # def update_action_history(self, choice):
     #     self.action_history.append(self.option_lbls[choice])
@@ -129,7 +139,8 @@ class Agent():
 
         '''
         action = self.activeOptions[-1]["label"]
-        print("moving " + action)
+        # print("moving " + action)
+        # print("action hierarchy is ", [list(o.values())[0] for o in self.activeOptions])
 
         # Compute and perform the shifts in x and y given by the chosen
         # primitive action:
@@ -162,9 +173,9 @@ class Agent():
         if env.state["label"] == env.SG:
             self.SG_visited = True
 
-        # self.step_counter += 1
+        self.stepCounter += 1
 
-        self.collectReward(env)
+        # self.collectReward(env)
 
     # def update_state_history(self, env):
     #     env.state_history.append(find_state(env.state, env, value="label"))
@@ -180,10 +191,10 @@ class Agent():
                  task_mode - a str describing the mode of the current task
 
         '''
-        print("collecting reward")
+        # print("collecting reward")
         self.r += env.deliverReward(self.SG_visited)
 
-        self.checkForTermination(env)
+        # self.checkForTermination(env)
 
     def checkForTermination(self, env):
         '''
@@ -196,17 +207,17 @@ class Agent():
         terminate_control_policy.
 
         '''
-        print("checking for termination")
+        # print("checking for termination")
 
         controlOption = self.options[self.activeOptions[-1]["label"]]
 
         if controlOption.s_term[env.state["label"]][0] == 1:
             self.terminateOption(env)
-        else:
-            if isinstance(controlOption, PrimitiveAction) is False:
-                self.selectOption(env)
-            else:
-                self.move(env)
+        # else:
+        #     if isinstance(controlOption, PrimitiveAction) is False:
+        #         self.selectOption(env)
+        #     else:
+        #         self.move(env)
 
     def terminateOption(self, env):
         '''
@@ -214,7 +225,7 @@ class Agent():
         name for later evaluation.
 
         '''
-        print("terminating")
+        # print("terminating")
         self.terminatedOption = self.activeOptions.pop(-1)
 
         # If active_policies is empty, we update Q:
@@ -238,11 +249,12 @@ class Agent():
         Expects        env - an object of class Environment
 
         '''
-        print("updating Q")
+        # print("updating Q")
         # s_hist = find_state(self.s_hist, env)
         s_prev = self.terminatedOption["stateInitialised"]["label"]
         s_curr = env.state["label"]
         o = self.terminatedOption["label"]
+        # print("updating Q-value of ", o, " taken at ", s_prev)
         # if self.has_history:
         #     delta = self.alpha*(self.r +
         #                         self.gamma * np.max(
@@ -262,9 +274,9 @@ class Agent():
 
         self.Q.loc[o, s_prev] += delta
 
-        if self.r == 0:
-            self.selectOption(env)
-        else:
+        if self.r > 0:
+            # self.selectOption(env)
+            # else:
             self.sleep()
 
     def sleep(self):
