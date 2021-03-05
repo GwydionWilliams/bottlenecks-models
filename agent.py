@@ -9,6 +9,7 @@ class Option():
         self.s_init = params["s_init"]
         self.s_term = params["s_term"]
         self.pi = params["pi"]
+        self.level = params["level"]
 
 
 class PrimitiveAction(Option):
@@ -43,8 +44,11 @@ class Agent():
         self.selectionPolicy = params["policy"]
         if self.selectionPolicy == "e-greedy":
             self.eps = params["epsilon"]
-        elif self.selectionPolicy == "softmax":
+        elif "softmax" in self.selectionPolicy:
             self.tau = params["tau"]
+
+            if "structured" in self.selectionPolicy:
+                self.beta = params["beta"]
 
         self.Q, optionNames = None, []
         for o_lbl, o in self.options.items():
@@ -84,8 +88,6 @@ class Agent():
         Expects     env - an object of class Environment
 
         '''
-        # print("selecting from ", env.state["label"])
-
         if self.activeOptions == []:
             pi = self.Q
             isDeterministic = False
@@ -93,12 +95,9 @@ class Agent():
             pi = self.options[self.activeOptions[-1]["label"]].pi
             isDeterministic = True
 
-        # print(pi)
-
         Q_sa = pi.loc[:, env.state["label"]].squeeze()
 
         if self.selectionPolicy == "greedy" or isDeterministic:
-            # print("determinstic selection...")
             Q_max = Q_sa.transform(lambda x: x == x.max()).astype('bool')
             maxRow = Q_sa.loc[Q_max]
             if len(maxRow) > 1:
@@ -109,23 +108,24 @@ class Agent():
             if np.random.random() < self.eps:
                 choice = np.random.choice(np.where(Q_sa > 0)[0])
 
-        elif self.selectionPolicy == "softmax":
-            Q_sa = softmax(Q_sa, self.tau)
+        elif "softmax" in self.selectionPolicy:
+            if "structured" in self.selectionPolicy:
+                optLevels = np.array([o.level for o in self.options.values()])
+                tau = self.tau * \
+                    self.beta ** (max(optLevels) - optLevels)
+            else:
+                tau = self.tau
+
+            Q_sa = softmax(Q_sa, tau)
+
             choice = Q_sa.sample(weights=Q_sa).index[0]
 
         self.activeOptions.append(
             {"label": choice, "stateInitialised": copy.deepcopy(env.state)}
         )
 
-        # print("selected ", choice)
-        # print("is prim? ", isinstance(self.options[choice], PrimitiveAction))
-
         if isinstance(self.options[choice], PrimitiveAction) is False:
-            # print("reselect")
             self.selectOption(env)
-        #
-        # else:
-        #     self.move(env)
 
     # def update_action_history(self, choice):
     #     self.action_history.append(self.option_lbls[choice])
@@ -139,8 +139,6 @@ class Agent():
 
         '''
         action = self.activeOptions[-1]["label"]
-        # print("moving " + action)
-        # print("action hierarchy is ", [list(o.values())[0] for o in self.activeOptions])
 
         # Compute and perform the shifts in x and y given by the chosen
         # primitive action:
@@ -165,17 +163,11 @@ class Agent():
 
         env.update()
 
-        # Find and store the index of the new state:
-        # self.s_i = find_state(env.state, env)
-        # self.update_state_history(env)
-
         # If the new state is a sub-goal, record visitation:
         if env.state["label"] == env.SG:
             self.SG_visited = True
 
         self.stepCounter += 1
-
-        # self.collectReward(env)
 
     # def update_state_history(self, env):
     #     env.state_history.append(find_state(env.state, env, value="label"))
@@ -191,10 +183,7 @@ class Agent():
                  task_mode - a str describing the mode of the current task
 
         '''
-        # print("collecting reward")
         self.r += env.deliverReward(self.SG_visited)
-
-        # self.checkForTermination(env)
 
     def checkForTermination(self, env):
         '''
@@ -207,17 +196,11 @@ class Agent():
         terminate_control_policy.
 
         '''
-        # print("checking for termination")
 
         controlOption = self.options[self.activeOptions[-1]["label"]]
 
         if controlOption.s_term[env.state["label"]][0] == 1:
             self.terminateOption(env)
-        # else:
-        #     if isinstance(controlOption, PrimitiveAction) is False:
-        #         self.selectOption(env)
-        #     else:
-        #         self.move(env)
 
     def terminateOption(self, env):
         '''
@@ -225,7 +208,6 @@ class Agent():
         name for later evaluation.
 
         '''
-        # print("terminating")
         self.terminatedOption = self.activeOptions.pop(-1)
 
         # If active_policies is empty, we update Q:
@@ -233,11 +215,6 @@ class Agent():
             self.update_Q(env)
         else:
             self.checkForTermination(env)
-
-        # # If the lowest level currently active policy is non-primitive, a
-        # # primitive policy must be sought out:
-        # elif self.active_policies[-1] >= self.num_actions:
-        #     self.under_primitive_control = False
 
     def update_Q(self, env):
         '''
@@ -249,23 +226,9 @@ class Agent():
         Expects        env - an object of class Environment
 
         '''
-        # print("updating Q")
-        # s_hist = find_state(self.s_hist, env)
         s_prev = self.terminatedOption["stateInitialised"]["label"]
         s_curr = env.state["label"]
         o = self.terminatedOption["label"]
-        # print("updating Q-value of ", o, " taken at ", s_prev)
-        # if self.has_history:
-        #     delta = self.alpha*(self.r +
-        #                         self.gamma * np.max(
-        #                             self.Q[s_prev, :, s]) -
-        #                         self.Q[s_hist, o, s_prev])
-        #
-        #     self.Q[s_hist, o, s_prev] += delta
-
-        # else:
-        # if len(self.option_lbls) > 4:
-        #     s_prev = self.s_init
 
         delta = self.alpha * (
             self.r +
@@ -275,8 +238,6 @@ class Agent():
         self.Q.loc[o, s_prev] += delta
 
         if self.r > 0:
-            # self.selectOption(env)
-            # else:
             self.sleep()
 
     def sleep(self):

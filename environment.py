@@ -8,19 +8,18 @@ class Environment():
         self.states = params["states"]
         self.state = None
 
-        self.pR = {}
-        for s in self.states.keys():
-            self.pR[s] = 0
-
         self.SG = None
         self.G = None
 
     def update(self):
         newState = self.findState()
         self.state["label"] = newState
-        # print("new location is ", self.state)
 
     def placeReward(self, G_side, SG_side):
+        self.pR = {}
+        for s in self.states.keys():
+            self.pR[s] = 0
+
         s_origin = "B0" + SG_side
         self.state = {
             "label": s_origin,

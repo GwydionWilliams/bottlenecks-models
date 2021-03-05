@@ -46,6 +46,13 @@ def definePrimitiveActions(taskMode, states):
         actionLbls[3]: [0, 0, 1, 0, 1, 1, 0, 1, 0]
     }
 
+    level = {
+        actionLbls[0]: 0,
+        actionLbls[1]: 0,
+        actionLbls[2]: 0,
+        actionLbls[3]: 0
+    }
+
     if taskMode is "flat":
         for a in actionLbls:
             s_init[a] = s_init[a][1:]
@@ -68,7 +75,8 @@ def definePrimitiveActions(taskMode, states):
         params = {
             "s_init": pd.DataFrame(s_init[a], index=states).transpose(),
             "s_term": pd.DataFrame(s_term[a], index=states).transpose(),
-            "pi": pd.DataFrame(pi[a], columns=states, index=actionLbls)
+            "pi": pd.DataFrame(pi[a], columns=states, index=actionLbls),
+            "level": level[a]
         }
 
         primitiveActions[a] = PrimitiveAction(params)
@@ -105,6 +113,15 @@ def defineOptions(agentClass, taskMode, states):
             optionLbls[3]: np.array([0, 0, 0, 0, 0, 0, 0, 0, 1]),
             optionLbls[4]: np.array([0, 0, 0, 0, 0, 0, 0, 1, 0]),
             optionLbls[5]: np.array([0, 0, 0, 0, 0, 0, 0, 0, 1])
+        }
+
+        level = {
+            optionLbls[0]: 1,
+            optionLbls[1]: 1,
+            optionLbls[2]: 2,
+            optionLbls[3]: 2,
+            optionLbls[4]: 2,
+            optionLbls[5]: 2
         }
 
         pi = {
@@ -178,6 +195,11 @@ def defineOptions(agentClass, taskMode, states):
                 optionLbls[7]: np.array([0, 0, 0, 0, 0, 0, 0, 1, 1]),
             })
 
+            level.update({
+                optionLbls[6]: 3,
+                optionLbls[7]: 3
+            })
+
             pi.update({
                 # REP
                 optionLbls[6]: np.array([
@@ -220,7 +242,8 @@ def defineOptions(agentClass, taskMode, states):
             "s_term": pd.DataFrame(s_term[o], index=states).transpose(),
             "pi": pd.DataFrame(
                 pi[o], columns=states, index=allOptions[:pi[o].shape[0]]
-            )
+            ),
+            "level": level[o]
         }
 
         options[o] = Option(params)

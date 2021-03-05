@@ -6,7 +6,7 @@ import numpy as np
 # 1. INITIALISE PARAMETERS ----------------------------------------------------
 #    i.   SIMULATION MODE
 simParams = {
-    "numTrials": int(2e3),
+    "numTrials": int(1e3),
     "taskMode": "hierarchical",
     "dataPath": "./data/placeholder"
 }
@@ -14,47 +14,21 @@ simParams = {
 agentParams = {
     "class": "abstract-hierarchical",
     "policy": "softmax",
-    "tau": .1,
+    "tau": .5,
+    "beta": .2,
     "gamma": .5,
-    "alpha": .5   # np.arange(0.02, 1, step=.02)
+    "alpha": .5
 }
 
 envParams = {
     "regimes": ["repeat", "alternate"]
 }
-#
-# data_dir = "./data/"
-# file_name = "31-MFA0-hierEnv"
-#
-# #    ii.  AGENT & ENVIRONMENT
-# alphas = np.arange(0.02, 1, step=.02)
-# gamma = .5
-# policy = "softmax"
-# options = defineOptions(simParams["agentClass"], simParams["taskMode"])
-#
-# states = buildEnv(simParams["task_mode"])
 
-# for alpha in agentParams["alpha"]:
-
-# agentParams = {
-#     "alpha": alpha,
-#     "gamma": gamma,
-#     "options": options,
-#     "policy": policy,
-#     "agent_class": simParams["agentClass"]
-# }
-#
-# env_params = {
-#     "states": states
-# }
-
-#    iv. CONTROLLER
 sim = Simulation(simParams, agentParams, envParams)
 
 # -------------------------------------------------------------------------
 # 2. RUN SIMULATION -------------------------------------------------------
 for sim.trialNum in range(sim.numTrials):
-        # print("_________________________NEW  TRIAL_________________________")
 
     sim.setupTrial()
 
@@ -65,35 +39,15 @@ for sim.trialNum in range(sim.numTrials):
         sim.agent.move(sim.env)
         sim.agent.collectReward(sim.env)
         sim.agent.checkForTermination(sim.env)
-        # print("\n\n\n\n\n")
 
-    print("trial ", sim.trialNum, " completed in ", sim.agent.stepCounter, " steps")
+    print("trial ", sim.trialNum, " under ", sim.activeRegime,
+          " completed in ", sim.agent.stepCounter, " steps")
 
-    # while sim.agent.terminationReached is not True:
+    if ((sim.trialNum % (sim.numTrials / 2)) == 0 and sim.trialNum != 0):
+        print(sim.agent.Q)
+        sim.switchRegime()
 
-    # while sim.agent.under_primitive_control is False:
-    # sim.agent.select_option(sim.env)
-
-    # sim.agent.move(sim.env)
-    # sim.agent.collect_reward(sim.env, sim.task_mode)
-    # sim.agent.check_for_termination()
-    # if sim.agent.under_Q_control:
-    #     sim.agent.update_Q(sim.env)
-    # sim.norm_Q()
-
-    # sim.summarise_step()
-
-    # sim.t += 1
-
-    # sim.record_trial()
-
-    if sim.trialNum != 0:
-        # if ((sim.n_trial % (sim.num_trials / 10)) == 0) or \
-        #         (sim.n_trial == (sim.num_trials-1)):
-        #     sim.summarise_chunk()
-
-        if ((sim.trialNum % (sim.numTrials / 2)) == 0):
-            sim.switchRegime()
+print(sim.agent.Q)
 
 # -------------------------------------------------------------------------
 # 3. SAVE RESULTS ---------------------------------------------------------

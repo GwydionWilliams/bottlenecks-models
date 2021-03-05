@@ -8,7 +8,6 @@ class Simulation():
     def __init__(self, simParams, agentParams, envParams):
         self.taskMode = simParams["taskMode"]
         self.numTrials = simParams["numTrials"]
-        self.trialNumber = 0
         self.regimes = envParams["regimes"]
         self.activeRegime = self.regimes[0]
 
@@ -26,17 +25,6 @@ class Simulation():
         agentParams.update({"options": options})
 
         self.agent = Agent(agentParams, self.env)
-        # self.agent.init_primitive_actions(self.taskMode)
-
-        # num_options = len(option_params["label"])
-        # for n in range(num_options):
-        #     o = {}
-        #     for key, value in option_params.items():
-        #         o[key] = value[n]
-        #     option = Option(o)
-        #     self.agent.add_option(option)
-        # if self.agent.has_history:
-        #     self.agent.endow_history(len(env_params["states"]))
 
         self.SG_sides = ["L", "R"]
         self.G_sides = ["L", "R"]
@@ -48,30 +36,12 @@ class Simulation():
             "sub_goal_side": [],
             "goal_side": [],
             "regime": []
-            # "action_history": [],
-            # "state_history": []
         }
-
-        # if self.agent.has_history:
-        #     self.data_Q = np.zeros(
-        #         (len(env_params["states"]),
-        #          num_options + self.agent.num_actions,
-        #          len(env_params["states"]),
-        #          sim_params["num_trials"])
-        #     )
-        # else:
-        #     self.data_Q = np.zeros(
-        #         (num_options + self.agent.num_actions,
-        #          len(env_params["states"]),
-        #          sim_params["num_trials"])
-        #     )
 
     def setupTrial(self):
         self.agent.sleep()
-        # self.agent.termination_reached = False
-
         if self.taskMode is "hierarchical":
-            self.G_side = self.SG_sides[self.trialNumber % 2]
+            self.G_side = self.SG_sides[self.trialNum % 2]
             if self.activeRegime is "repeat":
                 self.SG_side = self.G_side
             elif self.activeRegime is "alternate":
@@ -79,19 +49,21 @@ class Simulation():
                     side for side in self.G_sides if side != self.G_side
                 ][0]
         else:
-            self.G_side = self.SG_sides[self.trialNumber % 2]
+            self.G_side = self.SG_sides[self.trialNum % 2]
             if self.G_side.contains("L"):
                 self.SG_side = "L"
             else:
                 self.SG_side = "R"
 
-        # SG_i = self.SG_sides.index(self.SG_side)
-
-        # self.agent.reset(self.SG_side, self.env, self.taskMode)
-
         self.env.placeReward(self.G_side, self.SG_side)
 
         self.t = 0
+
+    def switchRegime(self):
+        self.activeRegime = self.regimes[1]
+        self.agent.step_counter = 0
+        print("---------------------------- REGIME SWITCH --------------------"
+              "--------")
 
     # def record_trial(self):
     #     self.data["alpha"].append(round(self.agent.alpha, 2))
@@ -104,15 +76,9 @@ class Simulation():
     #     self.data["state_history"].append("-".join(self.agent.state_history))
     #
     #     if self.agent.has_history:
-    #         self.data_Q[:, :, :, self.trialNumber] = self.agent.Q
+    #         self.data_Q[:, :, :, self.trialNum] = self.agent.Q
     #     else:
-    #         self.data_Q[:, :, self.trialNumber] = self.agent.Q
-
-    def switchRegime(self):
-        self.activeRegime = self.regimes[1]
-        self.agent.step_counter = 0
-        print("---------------------------- REGIME SWITCH --------------------"
-              "--------")
+    #         self.data_Q[:, :, self.trialNum] = self.agent.Q
 
     # def norm_Q(self):
     #     self.agent.Q[:, :] = self.agent.Q[:, :] / sum(sum(self.agent.Q[:, :]))
@@ -165,7 +131,7 @@ class Simulation():
     #                   "    Q(SGR, B1, :) = {6}\n"
     #                   "-------------------------------------------------------"
     #                   "-----------------".format(
-    #                       self.trialNumber, self.data["mu_steps"][-1],
+    #                       self.trialNum, self.data["mu_steps"][-1],
     #                       np.round(self.agent.Q[0, :, 0], 2),
     #                       np.round(self.agent.Q[0, :, 1], 2),
     #                       np.round(self.agent.Q[0, :, 2], 2),
@@ -183,7 +149,7 @@ class Simulation():
     #                   "         Q(B1, :) = {5}\n"
     #                   "-------------------------------------------------------"
     #                   "-----------------".format(
-    #                       self.trialNumber, self.data["mu_steps"][-1],
+    #                       self.trialNum, self.data["mu_steps"][-1],
     #                       np.round(self.agent.Q[:, 0], 2),
     #                       np.round(self.agent.Q[:, 1], 2),
     #                       np.round(self.agent.Q[:, 2], 2),
@@ -205,7 +171,7 @@ class Simulation():
     #                   "    Q(SGR, B1, :) = {9}\n"
     #                   "-------------------------------------------------------"
     #                   "----------------".format(
-    #                       self.trialNumber, self.data["mu_steps"][-1],
+    #                       self.trialNum, self.data["mu_steps"][-1],
     #                       np.round(self.agent.Q[0, :, 0], 2),
     #                       np.round(self.agent.Q[1, :, 1], 2),
     #                       np.round(self.agent.Q[0, :, 2], 2),
@@ -228,7 +194,7 @@ class Simulation():
     #                   "         Q(B1, :) = {6}\n"
     #                   "-------------------------------------------------------"
     #                   "----------------".format(
-    #                       self.trialNumber, self.data["mu_steps"][-1],
+    #                       self.trialNum, self.data["mu_steps"][-1],
     #                       np.round(self.agent.Q[:, 0], 2),
     #                       np.round(self.agent.Q[:, 1], 2),
     #                       np.round(self.agent.Q[:, 2], 2),
