@@ -33,10 +33,10 @@ def definePrimitiveActions(taskMode, states):
     actionLbls = ["NE", "SE", "SW", "NW"]
 
     s_init = {
-        actionLbls[0]: [1, 1, 1, 1, np.NAN, 1, np.NAN, np.NAN, np.NAN],
-        actionLbls[1]: [np.NAN, np.NAN, 1, np.NAN, 1, 1, np.NAN, 1, np.NAN],
-        actionLbls[2]: [np.NAN, np.NAN, np.NAN, 1, np.NAN, 1, 1, np.NAN, 1],
-        actionLbls[3]: [1, 1, 1, 1, np.NAN, 1, np.NAN, np.NAN, np.NAN]
+        actionLbls[0]: [0, 0, 0, 0, np.NAN, 0, np.NAN, np.NAN, np.NAN],
+        actionLbls[1]: [np.NAN, np.NAN, 0, np.NAN, 0, 0, np.NAN, 0, np.NAN],
+        actionLbls[2]: [np.NAN, np.NAN, np.NAN, 0, np.NAN, 0, 0, np.NAN, 0],
+        actionLbls[3]: [0, 0, 0, 0, np.NAN, 0, np.NAN, np.NAN, np.NAN]
     }
 
     s_term = {
@@ -87,10 +87,7 @@ def definePrimitiveActions(taskMode, states):
 def defineOptions(agentClass, taskMode, states):
     options = definePrimitiveActions(taskMode, states)
 
-    if agentClass is "flat":
-        optionLbls = s_init = s_term = pi = []
-
-    elif "hierarchical" in agentClass:
+    if "hierarchical" in agentClass:
         optionLbls = ["B0_B1_L", "B0_B1_R",
                       "B0_GL_REP", "B0_GR_REP",
                       "B0_GL_ALT", "B0_GR_ALT"]
@@ -98,12 +95,12 @@ def defineOptions(agentClass, taskMode, states):
         allOptions = list(options.keys()) + optionLbls
 
         s_init = {
-            optionLbls[0]: np.array([1, 1, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN]),
-            optionLbls[1]: np.array([1, 1, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN]),
-            optionLbls[2]: np.array([1, 1, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN]),
-            optionLbls[3]: np.array([1, 1, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN]),
-            optionLbls[4]: np.array([1, 1, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN]),
-            optionLbls[5]: np.array([1, 1, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN])
+            optionLbls[0]: np.array([0, 0, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN]),
+            optionLbls[1]: np.array([0, 0, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN]),
+            optionLbls[2]: np.array([0, 0, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN]),
+            optionLbls[3]: np.array([0, 0, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN]),
+            optionLbls[4]: np.array([0, 0, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN]),
+            optionLbls[5]: np.array([0, 0, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN])
         }
 
         s_term = {
@@ -186,8 +183,8 @@ def defineOptions(agentClass, taskMode, states):
             optionLbls += ["REP", "ALT"]
 
             s_init.update({
-                optionLbls[6]: np.array([1, 1, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN]),
-                optionLbls[7]: np.array([1, 1, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN]),
+                optionLbls[6]: np.array([0, 0, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN]),
+                optionLbls[7]: np.array([0, 0, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN]),
             })
 
             s_term.update({
@@ -236,17 +233,17 @@ def defineOptions(agentClass, taskMode, states):
                 s_term[o] = s_term[o][1:]
                 pi[o] = pi[o][:, 1:]
 
-    for o in optionLbls:
-        params = {
-            "s_init": pd.DataFrame(s_init[o], index=states).transpose(),
-            "s_term": pd.DataFrame(s_term[o], index=states).transpose(),
-            "pi": pd.DataFrame(
-                pi[o], columns=states, index=allOptions[:pi[o].shape[0]]
-            ),
-            "level": level[o]
-        }
+        for o in optionLbls:
+            params = {
+                "s_init": pd.DataFrame(s_init[o], index=states).transpose(),
+                "s_term": pd.DataFrame(s_term[o], index=states).transpose(),
+                "pi": pd.DataFrame(
+                    pi[o], columns=states, index=allOptions[:pi[o].shape[0]]
+                ),
+                "level": level[o]
+            }
 
-        options[o] = Option(params)
+            options[o] = Option(params)
 
     return options
 

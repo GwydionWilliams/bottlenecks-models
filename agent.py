@@ -16,6 +16,10 @@ class PrimitiveAction(Option):
     pass
 
 
+class ParameterError(Exception):
+    pass
+
+
 def softmax(Q, tau):
     """Compute softmax values for each sets of scores in x."""
     e_Q = np.exp(Q/tau)
@@ -25,16 +29,22 @@ def softmax(Q, tau):
 class Agent():
     def __init__(self, params, env):
         self.awake = False
+        self.talkative = params["talkative"]
 
         self.s_hist = []  # the agent's state at t-2
 
-        # self.has_history = has_history
-        # env.state_history = ["BO"]
         self.s_origin = None
+        if "hierarchical" in params["class"]:
+            if params["representsHistory"] is True:
+                raise ParameterError(
+                    "Hierarchical agents cannot represent history"
+                )
+            else:
+                self.representsHistory = False
+        else:
+            self.representsHistory = params["representsHistory"]
 
         self.options = params["options"]
-
-        # self.action_history = []
 
         self.r = None
 
@@ -62,22 +72,26 @@ class Agent():
             self.Q, columns=env.states.keys(), index=optionNames
         )
 
+        if self.representsHistory:
+            origins = list(env.states.keys())[:2]
+            Q_hist = {}
+            for origin in origins:
+                Q_hist.update({origin: copy.deepcopy(self.Q)})
+
+            self.Q = Q_hist
+
         self.activeOptions = []
 
         self.stepCounter = 0
 
-    # def endowHistory(self, num_states):
-    #     full_Q = []
-    #     for i in range(num_states):
-    #         full_Q.append(self.Q[:])
-    #
-    #     self.Q = np.array(full_Q)
-
     def wakeUp(self, env):
         self.awake = True
-        self.s_origin = env.state["coords"]
+        self.s_origin = copy.deepcopy(env.state)
         self.stepCounter = 0
         # self.selectOption(env)
+
+        if self.talkative:
+            print("starting trial at", self.s_origin["label"])
 
     def selectOption(self, env):
         '''
@@ -89,8 +103,13 @@ class Agent():
 
         '''
         if self.activeOptions == []:
-            pi = self.Q
+            if not self.representsHistory:
+                pi = self.Q
+            else:
+                pi = self.Q[self.s_origin["label"]]
+
             isDeterministic = False
+
         else:
             pi = self.options[self.activeOptions[-1]["label"]].pi
             isDeterministic = True
@@ -127,8 +146,11 @@ class Agent():
         if isinstance(self.options[choice], PrimitiveAction) is False:
             self.selectOption(env)
 
-    # def update_action_history(self, choice):
-    #     self.action_history.append(self.option_lbls[choice])
+        elif self.talkative:
+            print(
+                "selected action hierarchy is: ",
+                [o["label"] for o in self.activeOptions]
+            )
 
     def move(self, env):
         '''
@@ -139,6 +161,9 @@ class Agent():
 
         '''
         action = self.activeOptions[-1]["label"]
+
+        if self.talkative:
+            print("moving", action, "from", env.state["label"])
 
         # Compute and perform the shifts in x and y given by the chosen
         # primitive action:
@@ -157,7 +182,7 @@ class Agent():
         # z-coordinates correspond to the z given by the arrangement of the
         # current trial:
         if env.state["coords"][:2] == [0, 0]:
-            env.state["coords"] = self.s_origin[:]
+            env.state["coords"] = self.s_origin["coords"][:]
         else:
             env.state["coords"][2] = 0
 
@@ -169,8 +194,9 @@ class Agent():
 
         self.stepCounter += 1
 
-    # def update_state_history(self, env):
-    #     env.state_history.append(find_state(env.state, env, value="label"))
+        if self.talkative:
+            print("entered", env.state["label"], "at", env.state["coords"])
+            print("is origin?", env.state["coords"][:2] == [0, 0])
 
     def collectReward(self, env):
         '''
@@ -229,13 +255,24 @@ class Agent():
         s_prev = self.terminatedOption["stateInitialised"]["label"]
         s_curr = env.state["label"]
         o = self.terminatedOption["label"]
+        if not self.representsHistory:
+            Q = self.Q
+        else:
+            Q = self.Q[self.s_origin["label"]]
+
+        if self.talkative:
+            print(
+                "updating value of", o,
+                "initialised at", s_prev,
+                "; now at", s_curr, "\n"
+            )
 
         delta = self.alpha * (
-            self.r +
-            self.gamma * np.max(self.Q.loc[:, s_curr]) - self.Q.loc[o, s_prev]
+            self.r + self.gamma * np.max(Q.loc[:, s_curr]) -
+            Q.loc[o, s_prev]
         )
 
-        self.Q.loc[o, s_prev] += delta
+        Q.loc[o, s_prev] += delta
 
         if self.r > 0:
             self.sleep()

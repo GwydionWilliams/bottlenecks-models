@@ -12,12 +12,14 @@ simParams = {
 }
 
 agentParams = {
-    "class": "abstract-hierarchical",
+    "class": "hierarchical",
+    "representsHistory": False,
     "policy": "softmax",
-    "tau": .5,
+    "tau": .1,
     "beta": .2,
     "gamma": .5,
-    "alpha": .5
+    "alpha": .75,
+    "talkative": False
 }
 
 envParams = {
@@ -44,7 +46,11 @@ for sim.trialNum in range(sim.numTrials):
           " completed in ", sim.agent.stepCounter, " steps")
 
     if ((sim.trialNum % (sim.numTrials / 2)) == 0 and sim.trialNum != 0):
-        print(sim.agent.Q)
+        if sim.agent.representsHistory:
+            for origin, Q in sim.agent.Q.items():
+                print(Q)
+        else:
+            print(sim.agent.Q)
         sim.switchRegime()
 
 print(sim.agent.Q)
