@@ -23,7 +23,7 @@ class ParameterError(Exception):
 def softmax(Q, tau):
     """Compute softmax values for each sets of scores in x."""
     e_Q = np.exp(Q/tau)
-    return e_Q / e_Q.sum(axis=0)
+    return (e_Q / e_Q.sum(axis=0)).fillna(1)
 
 
 class Agent():
@@ -37,12 +37,22 @@ class Agent():
         if "hierarchical" in params["class"]:
             if params["representsHistory"] is True:
                 raise ParameterError(
-                    "Hierarchical agents cannot represent history"
+                    "Hierarchical agents cannot represent history."
                 )
             else:
                 self.representsHistory = False
         else:
             self.representsHistory = params["representsHistory"]
+
+        if "flat" in params["class"] and \
+                params["selectionStrategy"] is "sequential":
+            raise ParameterError(
+                "Flat agents cannot employ sequential option selection."
+            )
+        else:
+            self.selectionStrategy = params["selectionStrategy"]
+
+        self.statesForAbstraction = params["statesForAbstraction"]
 
         self.options = params["options"]
 
@@ -59,6 +69,8 @@ class Agent():
 
             if "structured" in self.selectionPolicy:
                 self.beta = params["beta"]
+            else:
+                self.beta = "NA"
 
         self.Q, optionNames = None, []
         for o_lbl, o in self.options.items():
@@ -102,6 +114,7 @@ class Agent():
         Expects     env - an object of class Environment
 
         '''
+        # 1. Find Q_sa --------------------------------------------------------
         if self.activeOptions == []:
             if not self.representsHistory:
                 pi = self.Q
@@ -110,12 +123,18 @@ class Agent():
 
             isDeterministic = False
 
+            if self.selectionStrategy is "sequential":
+                level, optsAtLevel = self.findHighestLevelOptions(env)
+                pi = pi.loc[optsAtLevel, ]
+
         else:
             pi = self.options[self.activeOptions[-1]["label"]].pi
             isDeterministic = True
 
-        Q_sa = pi.loc[:, env.state["label"]].squeeze()
+        Q_sa = pi.loc[:, env.state["label"]]
 
+        # 2. Select action from Q_sa ------------------------------------------
+        # 2a. greedy selection
         if self.selectionPolicy == "greedy" or isDeterministic:
             Q_max = Q_sa.transform(lambda x: x == x.max()).astype('bool')
             maxRow = Q_sa.loc[Q_max]
@@ -123,16 +142,24 @@ class Agent():
                 maxRow = maxRow.sample()
             choice = maxRow.index[0]
 
+        # 2b. e-greedy selection
         elif self.selectionPolicy == "e-greedy":
             if np.random.random() < self.eps:
                 choice = np.random.choice(np.where(Q_sa > 0)[0])
 
+        # 2cd. structured-/softmax selection
         elif "softmax" in self.selectionPolicy:
             if "structured" in self.selectionPolicy:
-                optLevels = np.array([o.level for o in self.options.values()])
-                tau = self.tau * \
+                optLevels = np.unique([o.level for o in self.options.values()])
+                taus = self.tau * \
                     self.beta ** (max(optLevels) - optLevels)
+                tau = taus[level]
+
+                if self.talkative:
+                    print("selecting option from level", level,
+                          "with temperature", tau)
             else:
+                Q_sa = Q_sa.dropna()
                 tau = self.tau
 
             Q_sa = softmax(Q_sa, tau)
@@ -143,6 +170,7 @@ class Agent():
             {"label": choice, "stateInitialised": copy.deepcopy(env.state)}
         )
 
+        # 3. Check if primitive
         if isinstance(self.options[choice], PrimitiveAction) is False:
             self.selectOption(env)
 
@@ -151,6 +179,24 @@ class Agent():
                 "selected action hierarchy is: ",
                 [o["label"] for o in self.activeOptions]
             )
+
+    def findHighestLevelOptions(self, env):
+        Q_s = self.Q.loc[:, env.state["label"]]
+        Q_s = Q_s.dropna()
+        optsAvailable = Q_s.index.tolist()
+
+        highestLevel = max([self.options[opt].level for opt in optsAvailable])
+        optsAtLevel = [
+            opt for opt in optsAvailable
+            if self.options[opt].level == highestLevel
+        ]
+
+        if self.talkative:
+            print("all opts available are", optsAvailable)
+            print("opts at highest level (", highestLevel, ") are",
+                  optsAtLevel)
+
+        return(highestLevel, optsAtLevel)
 
     def move(self, env):
         '''
@@ -273,6 +319,13 @@ class Agent():
         )
 
         Q.loc[o, s_prev] += delta
+
+        if s_prev in self.statesForAbstraction:
+            s_abs = [
+                s for s in self.statesForAbstraction if s is not s_prev
+            ][0]
+
+            Q.loc[o, s_abs] = Q.loc[o, s_prev]
 
         if self.r > 0:
             self.sleep()
