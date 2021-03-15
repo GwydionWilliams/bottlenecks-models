@@ -26,7 +26,7 @@ envParams = {
 simParams = {
     "numTrials": 200,
     "taskMode": "hierarchical",
-    "alphas": np.arange(.1, 1, .1),
+    "alphas": np.arange(.7, 1, .1),
     "taus": np.arange(.1, 1, .1),
     "numReps": 10
 }
@@ -70,17 +70,17 @@ for a in simParams["alphas"]:
                     if sim.agent.activeOptions == []:
                         sim.recordOption()
 
-                sim.recordTrial()
+                # sim.recordTrial()
 
-                # print("trial", sim.trialNum, "under", sim.activeRegime,
-                #       "completed in", sim.agent.stepCounter, "steps")
+                print("trial", sim.trialNum, "under", sim.activeRegime,
+                      "completed in", sim.agent.stepCounter, "steps")
 
                 if ((sim.trialNum+1) % (sim.numTrials / 2)) == 0 and sim.trialNum != 0:
-                    # if sim.agent.representsHistory:
-                    #     for origin, Q in sim.agent.Q.items():
-                    #         print(Q)
-                    # else:
-                    #     print(sim.agent.Q)
+                    if sim.agent.representsHistory:
+                        for origin, Q in sim.agent.Q.items():
+                            print(Q)
+                    else:
+                        print(sim.agent.Q)
                     sim.switchRegime()
 
         sim.modelNum += 1
