@@ -75,7 +75,8 @@ for a in simParams["alphas"]:
                 print("trial", sim.trialNum, "under", sim.activeRegime,
                       "completed in", sim.agent.stepCounter, "steps")
 
-                if ((sim.trialNum+1) % (sim.numTrials / 2)) == 0 and sim.trialNum != 0:
+                if ((sim.trialNum+1) % (sim.numTrials / 2)) == 0 and \
+                        sim.trialNum != 0:
                     if sim.agent.representsHistory:
                         for origin, Q in sim.agent.Q.items():
                             print(Q)

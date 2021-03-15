@@ -1,6 +1,5 @@
-from pathlib import Path
 import numpy as np
-from agent import Agent, Option
+from agent import Agent
 from environment import Environment
 from sim_funs import buildEnv, defineOptions
 
