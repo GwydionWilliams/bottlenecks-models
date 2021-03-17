@@ -1,49 +1,57 @@
 import csv
 import numpy as np
 import pandas as pd
+import copy
 from agent import Option, PrimitiveAction
 
 
-def buildEnv(taskMode):
-    if taskMode is "hierarchical":
-        states = {
-            "B0L": [0, 0, 0],
-            "B0R": [0, 0, 1]
-        }
-
-    elif taskMode is "flat":
-        states = {
-            "B0": [0, 0, 0]
-        }
-
-    states.update({
+def buildEnv():
+    states = {
+        "B0L":  [0, 0, 0],
+        "B0R":  [0, 0, 1],
         "SGL": [-1, 1, 0],
-        "SGR": [1, 1, 0],
-        "DL":  [-2, 2, 0],
-        "B1":  [0, 2, 0],
-        "DR":  [2, 2, 0],
-        "GL":  [-1, 3, 0],
-        "GR":  [1, 3, 0],
-    })
+        "SGR":  [1, 1, 0],
+        "DL1": [-2, 2, 0],
+        "B1":   [0, 2, 0],
+        "DR1":  [2, 2, 0],
+        "VL":  [-1, 3, 0],
+        "VR":   [1, 3, 0],
+        "DL2": [-2, 4, 0],
+        "GL":   [0, 4, 1],
+        "GR":   [0, 4, 0],
+        "DR2":  [2, 4, 0]
+    }
 
     return states
 
 
-def definePrimitiveActions(taskMode, states):
+def definePrimitiveActions(states):
     actionLbls = ["NE", "SE", "SW", "NW"]
 
-    s_init = {
-        actionLbls[0]: [0, 0, 0, 0, np.NAN, 0, np.NAN, np.NAN, np.NAN],
-        actionLbls[1]: [np.NAN, np.NAN, 0, np.NAN, 0, 0, np.NAN, 0, np.NAN],
-        actionLbls[2]: [np.NAN, np.NAN, np.NAN, 0, np.NAN, 0, 0, np.NAN, 0],
-        actionLbls[3]: [0, 0, 0, 0, np.NAN, 0, np.NAN, np.NAN, np.NAN]
+    s_init = {  # B0L B0R SGL SGR DL1 B1 DR1 VL VR DL2 GL GR DR2
+        actionLbls[0]: [  # NE
+            0, 0, 0, 0, None, 0, None, 0, 0,
+            None, None, None, None
+        ],
+        actionLbls[1]: [  # SE
+            None, None, 0, None, 0, 0,
+            None, 0, None, 0, None, 0, None
+        ],
+        actionLbls[2]: [  # SW
+            None, None, None, 0, None,
+            0, 0, None, 0, None, 0, None, 0
+        ],
+        actionLbls[3]: [  # NW
+            0, 0, 0, 0, None, 0, None, 0, 0,
+            None, None, None, None
+        ]
     }
 
-    s_term = {
-        actionLbls[0]: [0, 0, 0, 1, 0, 1, 1, 0, 1],
-        actionLbls[1]: [1, 1, 1, 1, 0, 1, 0, 0, 0],
-        actionLbls[2]: [1, 1, 1, 1, 0, 1, 0, 0, 0],
-        actionLbls[3]: [0, 0, 1, 0, 1, 1, 0, 1, 0]
+    s_term = {  # B0L B0R SGL SGR DL1 B1 DR1 VL VR DL2 GL GR DR2
+        actionLbls[0]: [None, None, None, 1, None, 1, 1, None, 1, None, 1, None, 1],
+        actionLbls[1]: [1, 1, 1, 1, None, 1, None, 1, 1, None, None, None, None],
+        actionLbls[2]: [1, 1, 1, 1, None, 1, None, 1, 1, None, None, None, None],
+        actionLbls[3]: [None, None, 1, None, 1, 1, None, 1, None, 1, None, 1, None]
     }
 
     level = {
@@ -53,18 +61,13 @@ def definePrimitiveActions(taskMode, states):
         actionLbls[3]: 0
     }
 
-    if taskMode is "flat":
-        for a in actionLbls:
-            s_init[a] = s_init[a][1:]
-            s_term[a] = s_term[a][1:]
-
     numActions = len(actionLbls)
     numStates = len(s_init[actionLbls[0]])
 
     pi = {}
     for i, a in enumerate(actionLbls):
         pi[a] = np.empty((numActions, numStates))
-        pi[a][:] = np.NAN
+        pi[a][:] = None
 
         for s in range(numStates):
             if s_init[a][s] == 1:
@@ -84,154 +87,206 @@ def definePrimitiveActions(taskMode, states):
     return primitiveActions
 
 
-def defineOptions(agentClass, taskMode, states):
-    options = definePrimitiveActions(taskMode, states)
+def defineOptions(agentClass, states):
+    options = definePrimitiveActions(states)
 
     if "hierarchical" in agentClass:
-        optionLbls = ["B0_B1_L", "B0_B1_R",
+        optionLbls = ["B_B_L", "B_B_R", "B_B_L_REV", "B_B_R_REV",
                       "B0_GL_REP", "B0_GR_REP",
                       "B0_GL_ALT", "B0_GR_ALT"]
 
         allOptions = list(options.keys()) + optionLbls
 
-        s_init = {
-            optionLbls[0]: np.array([0, 0, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN]),
-            optionLbls[1]: np.array([0, 0, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN]),
-            optionLbls[2]: np.array([0, 0, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN]),
-            optionLbls[3]: np.array([0, 0, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN]),
-            optionLbls[4]: np.array([0, 0, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN]),
-            optionLbls[5]: np.array([0, 0, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN])
+        univInit = np.array(
+            [0, 0, None, None, None, None, None,
+                None, None, None, None, None, None]
+        )
+
+        s_init = {  # B0L B0R SGL SGR DL1 B1 DR1 VL VR DL2 GL GR DR2
+            optionLbls[0]: np.array(
+                [0, 0, None, None, None, 0, None,
+                 None, None, None, None, None, None]
+            ),
+            optionLbls[1]: np.array(
+                [0, 0, None, None, None, 0, None,
+                 None, None, None, None, None, None]
+            ),
+            optionLbls[2]: np.array(
+                [None, None, None, None, None,
+                 0, None, None, None, None, 0, None, None]
+            ),
+            optionLbls[3]: np.array(
+                [None, None, None, None, None,
+                 0, None, None, None, None, None, 0, None]
+            ),
+            optionLbls[4]: copy.deepcopy(univInit),
+            optionLbls[5]: copy.deepcopy(univInit),
+            optionLbls[6]: copy.deepcopy(univInit),
+            optionLbls[7]: copy.deepcopy(univInit)
         }
 
-        s_term = {
-            optionLbls[0]: np.array([0, 0, 0, 0, 0, 1, 0, 0, 0]),
-            optionLbls[1]: np.array([0, 0, 0, 0, 0, 1, 0, 0, 0]),
-            optionLbls[2]: np.array([0, 0, 0, 0, 0, 0, 0, 1, 0]),
-            optionLbls[3]: np.array([0, 0, 0, 0, 0, 0, 0, 0, 1]),
-            optionLbls[4]: np.array([0, 0, 0, 0, 0, 0, 0, 1, 0]),
-            optionLbls[5]: np.array([0, 0, 0, 0, 0, 0, 0, 0, 1])
+        s_term = {  # BNoneL BNoneR SGL SGR DL1 B1 DR1 VL VR DL2 GL GR DR2
+            optionLbls[0]: np.array([None, None, None, None, None, 1, None, None, None, None, 1, None, None]),
+            optionLbls[1]: np.array([None, None, None, None, None, 1, None, None, None, None, None, 1, None]),
+            optionLbls[2]: np.array([1, 1, None, None, None, 1, None, None, None, None, None, None, None]),
+            optionLbls[3]: np.array([1, 1, None, None, None, 1, None, None, None, None, None, None, None]),
+            optionLbls[4]: np.array([None, None, None, None, None, None, None, None, None, None, 1, None, None]),
+            optionLbls[5]: np.array([None, None, None, None, None, None, None, None, None, None, None, 1, None]),
+            optionLbls[6]: np.array([None, None, None, None, None, None, None, None, None, None, 1, None, None]),
+            optionLbls[7]: np.array([None, None, None, None, None, None,
+                                     None, None, None, None, None, 1, None])
         }
 
         level = {
             optionLbls[0]: 1,
             optionLbls[1]: 1,
-            optionLbls[2]: 2,
-            optionLbls[3]: 2,
+            optionLbls[2]: 1,
+            optionLbls[3]: 1,
             optionLbls[4]: 2,
-            optionLbls[5]: 2
+            optionLbls[5]: 2,
+            optionLbls[6]: 2,
+            optionLbls[7]: 2
         }
 
-        pi = {
-            # B0_B1_L
+        pi = {  # B0L B0R SGL SGR DL1 B1 DR1 VL VR DL2 GL GR DR2
+            # B_B_L
             optionLbls[0]: np.array([
-                0, 0, 1, 0, 0, 0, 0, 0, 0,  # NE
-                0, 0, 0, 0, 0, 0, 0, 0, 0,  # SE
-                0, 0, 0, 0, 0, 0, 0, 0, 0,  # SW
-                1, 1, 0, 0, 0, 0, 0, 0, 0,  # NW
-            ]).reshape((4, 9)),
+                None, None, 1,    None, None, None, None, 1,    None, None, None, None, None,  # NE
+                None, None, None, None, None, None, None, None, None, None, None, None, None,  # SE
+                None, None, None, None, None, None, None, None, None, None, None, None, None,  # SW
+                1,    1,    None, None, None, 1,    None, None, None, None, None, None, None,  # NW
+            ]).reshape((4, 13)),
 
-            # B0_B1_R
+            # B_B_R
             optionLbls[1]: np.array([
-                1, 1, 0, 0, 0, 0, 0, 0, 0,  # NE
-                0, 0, 0, 0, 0, 0, 0, 0, 0,  # SE
-                0, 0, 0, 0, 0, 0, 0, 0, 0,  # SW
-                0, 0, 0, 1, 0, 0, 0, 0, 0,  # NW
-            ]).reshape((4, 9)),
+                1,    1,    None, None, None, 1,    None, None, None, None, None, None, None,  # NE
+                None, None, None, None, None, None, None, None, None, None, None, None, None,  # SE
+                None, None, None, None, None, None, None, None, None, None, None, None, None,  # SW
+                None, None, None, 1,    None, None, None, None, 1,    None, None, None, None,  # NW
+            ]).reshape((4, 13)),
+
+            # B_B_L_REV
+            optionLbls[2]: np.array([
+                None, None, None, None, None, None, None, None, None, None, None, None, None,  # NE
+                None, None, 1,    None, None, None, None, 1,    None, None, None, None, None,  # SE
+                None, None, None, None, None, 1,    None, None, None, None, 1,    None, None,  # SW
+                None, None, None, None, None, None, None, None, None, None, None, None, None,  # NW
+            ]).reshape((4, 13)),
+
+            # B_B_R_REV
+            optionLbls[3]: np.array([
+                None, None, None, None, None, None, None, None, None, None, None, None, None,  # NE
+                None, None, None, None, None, 1,    None, None, None, None, None, 1,    None,  # SE
+                None, None, None, 1,    None, None, None, None, 1,    None, None, None, None,  # SW
+                None, None, None, None, None, None, None, None, None, None, None, None, None,  # NW
+            ]).reshape((4, 13)),
 
             # B0_GL_REP
-            optionLbls[2]: np.array([
-                0, 0, 0, 0, 0, 0, 0, 0, 0,  # NE
-                0, 0, 0, 0, 0, 0, 0, 0, 0,  # SE
-                0, 0, 0, 0, 0, 0, 0, 0, 0,  # SW
-                0, 0, 0, 0, 0, 1, 0, 0, 0,  # NW
-                1, 1, 0, 0, 0, 0, 0, 0, 0,  # B0_B1_L
-                0, 0, 0, 0, 0, 0, 0, 0, 0,  # B0_B1_R
-            ]).reshape((6, 9)),
+            optionLbls[4]: np.array([
+                None, None, None, None, None, None, None, None, None, None, None, None, None,  # NE
+                None, None, None, None, None, None, None, None, None, None, None, None, None,  # SE
+                None, None, None, None, None, None, None, None, None, None, None, None, None,  # SW
+                None, None, None, None, None, None, None, None, None, None, None, None, None,  # NW
+                1,    1,    None, None, None, 1,    None, None, None, None, None, None, None,  # B_B_L
+                None, None, None, None, None, None, None, None, None, None, None, None, None,  # B_B_R
+                None, None, None, None, None, None, None, None, None, None, None, None, None,  # B_B_L_REV
+                None, None, None, None, None, None, None, None, None, None, None, None, None,  # B_B_R_REV
+            ]).reshape((8, 13)),
 
             # B0_GR_REP
-            optionLbls[3]: np.array([
-                0, 0, 0, 0, 0, 1, 0, 0, 0,  # NE
-                0, 0, 0, 0, 0, 0, 0, 0, 0,  # SE
-                0, 0, 0, 0, 0, 0, 0, 0, 0,  # SW
-                0, 0, 0, 0, 0, 0, 0, 0, 0,  # NW
-                0, 0, 0, 0, 0, 0, 0, 0, 0,  # B0_B1_L
-                1, 1, 0, 0, 0, 0, 0, 0, 0,  # B0_B1_R
-            ]).reshape((6, 9)),
+            optionLbls[5]: np.array([
+                None, None, None, None, None, None, None, None, None, None, None, None, None,  # NE
+                None, None, None, None, None, None, None, None, None, None, None, None, None,  # SE
+                None, None, None, None, None, None, None, None, None, None, None, None, None,  # SW
+                None, None, None, None, None, None, None, None, None, None, None, None, None,  # NW
+                None, None, None, None, None, None, None, None, None, None, None, None, None,  # B_B_L
+                1,    1,    None, None, None, 1,    None, None, None, None, None, None, None,  # B_B_R
+                None, None, None, None, None, None, None, None, None, None, None, None, None,  # B_B_L_REV
+                None, None, None, None, None, None, None, None, None, None, None, None, None,  # B_B_R_REV
+            ]).reshape((8, 13)),
 
             # B0_GL_ALT
-            optionLbls[4]: np.array([
-                0, 0, 0, 0, 0, 0, 0, 0, 0,  # NE
-                0, 0, 0, 0, 0, 0, 0, 0, 0,  # SE
-                0, 0, 0, 0, 0, 0, 0, 0, 0,  # SW
-                0, 0, 0, 0, 0, 1, 0, 0, 0,  # NW
-                0, 0, 0, 0, 0, 0, 0, 0, 0,  # B0_B1_L
-                1, 1, 0, 0, 0, 0, 0, 0, 0,  # B0_B1_R
-            ]).reshape((6, 9)),
+            optionLbls[6]: np.array([
+                None, None, None, None, None, None, None, None, None, None, None, None, None,  # NE
+                None, None, None, None, None, None, None, None, None, None, None, None, None,  # SE
+                None, None, None, None, None, None, None, None, None, None, None, None, None,  # SW
+                None, None, None, None, None, None, None, None, None, None, None, None, None,  # NW
+                None, None, None, None, None, 1,    None, None, None, None, None, None, None,  # B_B_L
+                1,    1,    None, None, None, None, None, None, None, None, None, None, None,  # B_B_R
+                None, None, None, None, None, None, None, None, None, None, None, None, None,  # B_B_L_REV
+                None, None, None, None, None, None, None, None, None, None, None, None, None,  # B_B_R_REV
+            ]).reshape((8, 13)),
 
             # B0_GR_ALT
-            optionLbls[5]: np.array([
-                0, 0, 0, 0, 0, 1, 0, 0, 0,  # NE
-                0, 0, 0, 0, 0, 0, 0, 0, 0,  # SE
-                0, 0, 0, 0, 0, 0, 0, 0, 0,  # SW
-                0, 0, 0, 0, 0, 0, 0, 0, 0,  # NW
-                1, 1, 0, 0, 0, 0, 0, 0, 0,  # B0_B1_L
-                0, 0, 0, 0, 0, 0, 0, 0, 0,  # B0_B1_R
-            ]).reshape((6, 9)),
+            optionLbls[7]: np.array([
+                None, None, None, None, None, None, None, None, None, None, None, None, None,  # NE
+                None, None, None, None, None, None, None, None, None, None, None, None, None,  # SE
+                None, None, None, None, None, None, None, None, None, None, None, None, None,  # SW
+                None, None, None, None, None, None, None, None, None, None, None, None, None,  # NW
+                1,    1,    None, None, None, None, None, None, None, None, None, None, None,  # B_B_L
+                None, None, None, None, None, 1,    None, None, None, None, None, None, None,  # B_B_R
+                None, None, None, None, None, None, None, None, None, None, None, None, None,  # B_B_L_REV
+                None, None, None, None, None, None, None, None, None, None, None, None, None,  # B_B_R_REV
+            ]).reshape((8, 13)),
         }
 
         if "abstract" in agentClass:
             optionLbls += ["REP", "ALT"]
 
-            s_init.update({
-                optionLbls[6]: np.array([0, 0, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN]),
-                optionLbls[7]: np.array([0, 0, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN, np.NAN]),
+            s_init.update({  # B0L B0R SGL SGR DL1 B1 DR1 VL VR DL2 GL GR DR2
+                optionLbls[-2]: copy.deepcopy(univInit),
+                optionLbls[-1]: copy.deepcopy(univInit)
             })
 
-            s_term.update({
-                optionLbls[6]: np.array([0, 0, 0, 0, 0, 0, 0, 1, 1]),
-                optionLbls[7]: np.array([0, 0, 0, 0, 0, 0, 0, 1, 1]),
+            s_term.update({  # B0L B0R SGL SGR DL1 B1 DR1 VL VR DL2 GL GR DR2
+                optionLbls[-2]: np.array(
+                    [None, None, None, None, None, None,
+                        None, None, None, None, 1, 1, None]
+                ),
+                optionLbls[-1]: np.array(
+                    [None, None, None, None, None, None,
+                        None, None, None, None, 1, 1, None]
+                ),
             })
 
             level.update({
-                optionLbls[6]: 3,
-                optionLbls[7]: 3
+                optionLbls[-2]: 3,
+                optionLbls[-1]: 3
             })
 
             pi.update({
                 # REP
-                optionLbls[6]: np.array([
-                    0, 0, 0, 0, 0, 0, 0, 0, 0,  # NE
-                    0, 0, 0, 0, 0, 0, 0, 0, 0,  # SE
-                    0, 0, 0, 0, 0, 0, 0, 0, 0,  # SW
-                    0, 0, 0, 0, 0, 0, 0, 0, 0,  # NW
-                    0, 0, 0, 0, 0, 0, 0, 0, 0,  # B0_B1_L
-                    0, 0, 0, 0, 0, 0, 0, 0, 0,  # B0_B1_R
-                    1, 0, 0, 0, 0, 0, 0, 0, 0,  # B0_GL_REP
-                    0, 1, 0, 0, 0, 0, 0, 0, 0,  # B0_GR_REP
-                    0, 0, 0, 0, 0, 0, 0, 0, 0,  # B0_GL_ALT
-                    0, 0, 0, 0, 0, 0, 0, 0, 0,  # B0_GR_ALT
-                ]).reshape((10, 9)),
+                optionLbls[-2]: np.array([
+                    None, None, None, None, None, None, None, None, None, None, None, None, None,  # NE
+                    None, None, None, None, None, None, None, None, None, None, None, None, None,  # SE
+                    None, None, None, None, None, None, None, None, None, None, None, None, None,  # SW
+                    None, None, None, None, None, None, None, None, None, None, None, None, None,  # NW
+                    None, None, None, None, None, None, None, None, None, None, None, None, None,  # B0_B1_L
+                    None, None, None, None, None, None, None, None, None, None, None, None, None,  # B0_B1_R
+                    None, None, None, None, None, None, None, None, None, None, None, None, None,  # B_B_L_REV
+                    None, None, None, None, None, None, None, None, None, None, None, None, None,  # B_B_R_REV
+                    1,    None, None, None, None, None, None, None, None, None, None, None, None,  # B0_GL_REP
+                    None, 1,    None, None, None, None, None, None, None, None, None, None, None,  # B0_GR_REP
+                    None, None, None, None, None, None, None, None, None, None, None, None, None,  # B0_GL_ALT
+                    None, None, None, None, None, None, None, None, None, None, None, None, None,  # B0_GR_ALT
+                ]).reshape((12, 13)),
 
                 # ALT
-                optionLbls[7]: np.array([
-                    0, 0, 0, 0, 0, 0, 0, 0, 0,  # NE
-                    0, 0, 0, 0, 0, 0, 0, 0, 0,  # SE
-                    0, 0, 0, 0, 0, 0, 0, 0, 0,  # SW
-                    0, 0, 0, 0, 0, 0, 0, 0, 0,  # NW
-                    0, 0, 0, 0, 0, 0, 0, 0, 0,  # B0_B1_L
-                    0, 0, 0, 0, 0, 0, 0, 0, 0,  # B0_B1_R
-                    0, 0, 0, 0, 0, 0, 0, 0, 0,  # B0_GL_REP
-                    0, 0, 0, 0, 0, 0, 0, 0, 0,  # B0_GR_REP
-                    0, 1, 0, 0, 0, 0, 0, 0, 0,  # B0_GL_ALT
-                    1, 0, 0, 0, 0, 0, 0, 0, 0,  # B0_GR_ALT
-                ]).reshape((10, 9))
+                optionLbls[-1]: np.array([
+                    None, None, None, None, None, None, None, None, None, None, None, None, None,  # NE
+                    None, None, None, None, None, None, None, None, None, None, None, None, None,  # SE
+                    None, None, None, None, None, None, None, None, None, None, None, None, None,  # SW
+                    None, None, None, None, None, None, None, None, None, None, None, None, None,  # NW
+                    None, None, None, None, None, None, None, None, None, None, None, None, None,  # B0_B1_L
+                    None, None, None, None, None, None, None, None, None, None, None, None, None,  # B0_B1_R
+                    None, None, None, None, None, None, None, None, None, None, None, None, None,  # B_B_L_REV
+                    None, None, None, None, None, None, None, None, None, None, None, None, None,  # B_B_R_REV
+                    None, None, None, None, None, None, None, None, None, None, None, None, None,  # B0_GL_REP
+                    None, None, None, None, None, None, None, None, None, None, None, None, None,  # B0_GR_REP
+                    None, 1,    None, None, None, None, None, None, None, None, None, None, None,  # B0_GL_ALT
+                    1,    None, None, None, None, None, None, None, None, None, None, None, None,  # B0_GR_ALT
+                ]).reshape((12, 13))
             })
-
-        if taskMode is "flat":
-            for o in range(len(optionLbls)):
-                s_init[o] = s_init[o][1:]
-                s_term[o] = s_term[o][1:]
-                pi[o] = pi[o][:, 1:]
 
         for o in optionLbls:
             params = {

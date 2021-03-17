@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-# from sim_funs import find_state, define_primitive_actions
 import copy
 
 
@@ -22,7 +21,7 @@ class ParameterError(Exception):
 
 def softmax(Q, tau):
     """Compute softmax values for each sets of scores in x."""
-    e_Q = np.exp(Q/tau)
+    e_Q = np.exp((Q/tau).astype(float))
     return (e_Q / e_Q.sum(axis=0)).fillna(1)
 
 
@@ -30,8 +29,6 @@ class Agent():
     def __init__(self, params, env):
         self.awake = False
         self.talkative = params["talkative"]
-
-        self.s_hist = []  # the agent's state at t-2
 
         self.s_origin = None
         if "hierarchical" in params["class"]:
@@ -100,12 +97,11 @@ class Agent():
         self.awake = True
         self.s_origin = copy.deepcopy(env.state)
         self.stepCounter = 0
-        # self.selectOption(env)
 
         if self.talkative:
             print("starting trial at", self.s_origin["label"])
 
-    def selectOption(self, env):
+    def selectOption(self, env, empiricalBehaviour=None):
         '''
         Selects an option from the policy given by the lowest level currently
         active option. If no options are currently active, one will be selected
@@ -114,28 +110,59 @@ class Agent():
         Expects     env - an object of class Environment
 
         '''
-        # 1. Find Q_sa --------------------------------------------------------
+        behaviourGiven = empiricalBehaviour is not None
+        # 1. Find Q_sa ----------------------------------------------------
         if self.activeOptions == []:
-            if not self.representsHistory:
-                pi = self.Q
+            if behaviourGiven:
+                hierarchy = self.findLegalHierarchy(env, empiricalBehaviour)
+
+                if hierarchy is None:
+                    self.activeOptions.append(
+                        {"label": empiricalBehaviour["actions"][0],
+                         "stateInitialised": copy.deepcopy(env.state)}
+                    )
+                else:
+                    for option in hierarchy:
+                        self.activeOptions.append(
+                            {"label": option,
+                             "stateInitialised": copy.deepcopy(env.state)}
+                        )
+
+                for record in empiricalBehaviour.values():
+                    record.pop(0)
+
+                if self.talkative:
+                    print(
+                        "selected action hierarchy is: ",
+                        [o["label"] for o in self.activeOptions]
+                    )
+
+                return()
+
             else:
-                pi = self.Q[self.s_origin["label"]]
+                if not self.representsHistory:
+                    pi = self.Q
+                else:
+                    pi = self.Q[self.s_origin["label"]]
 
-            isDeterministic = False
-
-            if self.selectionStrategy is "sequential":
-                level, optsAtLevel = self.findHighestLevelOptions(env)
-                pi = pi.loc[optsAtLevel, ]
+                if self.selectionStrategy is "sequential":
+                    level, optsAtLevel = self.findHighestLevelOptions(env)
+                    pi = pi.loc[optsAtLevel, ]
 
         else:
-            pi = self.options[self.activeOptions[-1]["label"]].pi
-            isDeterministic = True
+            self.findOption(env)
+
+            if behaviourGiven:
+                for record in empiricalBehaviour.values():
+                    record.pop(0)
+
+            return()
 
         Q_sa = pi.loc[:, env.state["label"]]
 
-        # 2. Select action from Q_sa ------------------------------------------
+        # 2. Select action from Q_sa --------------------------------------
         # 2a. greedy selection
-        if self.selectionPolicy == "greedy" or isDeterministic:
+        if self.selectionPolicy == "greedy":
             Q_max = Q_sa.transform(lambda x: x == x.max()).astype('bool')
             maxRow = Q_sa.loc[Q_max]
             if len(maxRow) > 1:
@@ -150,7 +177,10 @@ class Agent():
         # 2cd. structured-/softmax selection
         elif "softmax" in self.selectionPolicy:
             if "structured" in self.selectionPolicy:
-                optLevels = np.unique([o.level for o in self.options.values()])
+                optLevels = np.unique(
+                    [o.level for o in self.options.values()]
+                )
+
                 taus = self.tau * \
                     self.beta ** (max(optLevels) - optLevels)
                 tau = taus[level]
@@ -170,15 +200,34 @@ class Agent():
             {"label": choice, "stateInitialised": copy.deepcopy(env.state)}
         )
 
-        # 3. Check if primitive
+        # 3. Check if primitive -------------------------------------------
         if isinstance(self.options[choice], PrimitiveAction) is False:
             self.selectOption(env)
+        else:
+            if self.talkative:
+                print(
+                    "selected action hierarchy is: ",
+                    [o["label"] for o in self.activeOptions]
+                )
 
-        elif self.talkative:
-            print(
-                "selected action hierarchy is: ",
-                [o["label"] for o in self.activeOptions]
-            )
+    def findOption(self, env):
+        pi = self.options[self.activeOptions[-1]["label"]].pi
+        pi_s = pi.loc[:, env.state["label"]]
+
+        pi_max = pi_s.transform(lambda x: x == x.max()).astype('bool')
+        maxRow = pi_s.loc[pi_max]
+        if len(maxRow) > 1:
+            maxRow = maxRow.sample()
+
+        choice = maxRow.index[0]
+
+        self.activeOptions.append(
+            {"label": choice,
+             "stateInitialised": copy.deepcopy(env.state)}
+        )
+
+        if isinstance(self.options[choice], PrimitiveAction) is False:
+            self.findOption(env)
 
     def findHighestLevelOptions(self, env):
         Q_s = self.Q.loc[:, env.state["label"]]
@@ -197,6 +246,106 @@ class Agent():
                   optsAtLevel)
 
         return(highestLevel, optsAtLevel)
+
+    def findLegalHierarchy(self, env, empiricalBehaviour):
+        optLevels = np.unique(
+            [o.level for o in self.options.values()]
+        )
+        h, H = 1, max(optLevels)
+
+        # 1. Find legal hierarchies at t0 -------------------------------------
+        hierarchies = [[empiricalBehaviour["actions"][0]]]
+        while h <= H:
+            for i in range(len(hierarchies)):
+                options = self.findLegalParentOpts(hierarchies[i][0], h, env)
+
+                if len(options) > 1:
+                    for j in range(len(options)-1):
+                        hierarchies.append(copy.deepcopy(hierarchies[j]))
+
+                    for k in range(len(options)):
+                        hierarchies[k].insert(0, options[k])
+
+                elif len(options) == 1:
+                    hierarchies[i].insert(0, options[0])
+
+            h += 1
+
+        # 2. Check validity of legal hierarchies for remainder of sequence ----
+        if len(hierarchies) is 1 and len(hierarchies[0]) is 1:
+            hierarchy = None
+        else:
+            validHierarchies = self.checkHierarchyValidity(
+                env, hierarchies, empiricalBehaviour
+            )
+
+            hierarchy = validHierarchies[0] if validHierarchies != [] else None
+
+        return(hierarchy)
+
+    def checkHierarchyValidity(self, env, hierarchies, empiricalBehaviour):
+        candidateHierarchies = copy.deepcopy(hierarchies)
+        invalidHierarchies = []
+        for i, hierarchy in enumerate(candidateHierarchies):
+            hierarchy.pop(-1)
+            hierarchyInvalid = False
+
+            for a, s in zip(empiricalBehaviour["actions"][1:],
+                            empiricalBehaviour["states"][1:]):
+
+                # i. Correct neutral origin states
+                s = env.origin["label"] if s == "B0" else s
+
+                # ii. Check for option termination
+                if self.options[hierarchy[-1]].s_term.loc[:, s][0] is 1:
+                    hierarchy.pop(-1)
+
+                    if hierarchy == []:
+                        break
+
+                # iii. Check if prescribed primitve matches empirical primitive
+                newOption, newOptionLbl, primitive = None, None, None
+                while not isinstance(newOption, PrimitiveAction):
+                    if newOption is not None:
+                        hierarchy.append(newOptionLbl)
+
+                    currentPi = self.options[hierarchy[-1]].pi.loc[:, s]
+
+                    try:
+                        newOptionLbl = currentPi.dropna().index[0]
+                        newOption = self.options[newOptionLbl]
+
+                    except IndexError:
+                        hierarchyInvalid = True
+                        break
+                else:
+                    primitive = newOptionLbl
+                    hierarchyInvalid = not primitive == a
+
+                if hierarchyInvalid:
+                    invalidHierarchies.append(i)
+                    break
+
+        for i in invalidHierarchies[::-1]:
+            hierarchies.pop(i)
+
+        return(hierarchies)
+
+    def findLegalParentOpts(self, option, h, env):
+        Q_s = self.Q.loc[:, env.state["label"]]
+        optsAvailable = Q_s.dropna().index.tolist()
+
+        optsAtLevel = [
+            opt for opt in optsAvailable
+            if self.options[opt].level == h
+        ]
+
+        legalOpts = [
+            opt for opt in optsAtLevel
+            if self.options[opt].pi.loc[option, env.state["label"]] is not None
+        ]
+
+        return(legalOpts)
 
     def move(self, env):
         '''
@@ -223,15 +372,7 @@ class Agent():
 
         env.state["coords"][0] += x_shift
         env.state["coords"][1] += y_shift
-
-        # If the agent has returned to the origin, ensure that the
-        # z-coordinates correspond to the z given by the arrangement of the
-        # current trial:
-        if env.state["coords"][:2] == [0, 0]:
-            env.state["coords"] = self.s_origin["coords"][:]
-        else:
-            env.state["coords"][2] = 0
-
+        env.checkElevation(action)
         env.update()
 
         # If the new state is a sub-goal, record visitation:
@@ -241,7 +382,8 @@ class Agent():
         self.stepCounter += 1
 
         if self.talkative:
-            print("entered", env.state["label"], "at", env.state["coords"])
+            print(f"entered {env.state['label']} at {env.state['coords']}; " +
+                  f"SG visited? {self.SG_visited}")
             print("is origin?", env.state["coords"][:2] == [0, 0])
 
     def collectReward(self, env):
@@ -281,6 +423,9 @@ class Agent():
 
         '''
         self.terminatedOption = self.activeOptions.pop(-1)
+
+        if self.talkative:
+            print("terminating", self.terminatedOption["label"])
 
         # If active_policies is empty, we update Q:
         if self.activeOptions == []:
