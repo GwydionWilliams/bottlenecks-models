@@ -1,5 +1,5 @@
 import numpy as np
-from agent import Agent
+from agent import Agent, softmax
 from environment import Environment
 from auxFuns import buildEnv, defineOptions
 
@@ -56,39 +56,41 @@ class Simulation():
                 self.modelNum += 1
                 print(f"Completed all reps for model number {self.modelNum}.")
 
-    def fit(self, d, agentParams):
-        d = d.loc[
-            :, ["subjNum", "policySet", "episode", "domain", "policy", "path",
-                "statesVisited", "actions", "steps"]
-        ]
+    def fit(self, x, d, agentParams):
+        agentParams["alpha"] = x[0]
+        agentParams["tau"] = x[1]
 
-        for subj in d.subjNum.unique():
-            for dom in d.domain.unique():
-                for set in d.policySet.unique():
-                    d_s = d[
-                        (d.subjNum == subj) &
-                        (d.domain == dom) &
-                        (d.policySet == set)
-                    ].reset_index()
+        ll = 0
 
-                    print(d_s)
+        for dom in d.domain.unique():
+            for set in d.policySet.unique():
+                d_s = d[
+                    (d.domain == dom) &
+                    (d.policySet == set)
+                ].reset_index()
 
-                    self.run(agentParams, .1, .1, d_s)
+                ll += self.run(agentParams, d_s)
 
-                    print(self.agent.Q)
+        nll = -ll
 
-    def run(self, agentParams, a, t, d=None):
+        print(f"for params {x}, nll = {nll}")
+
+        return(-ll)
+
+    def run(self, agentParams, d=None):
         if d is None:
+            fitting = False
             numTrials = self.numTrials
             path, regime, empBehav = None, None, None
         else:
             numTrials = d.shape[0]
+            fitting = True
+            ll = 0
 
-        agentParams["alpha"], agentParams["tau"] = a, t
         self.setupAgent(agentParams)
 
         for self.trialNum in range(numTrials):
-            if d is not None:
+            if fitting:
                 path = d.loc[self.trialNum, ].path.upper()
                 regime = d.loc[self.trialNum, ].policy.upper()
                 empBehav = {
@@ -107,6 +109,10 @@ class Simulation():
 
                 self.agent.selectOption(self.env, empBehav)
                 self.agent.move(self.env)
+
+                if fitting:
+                    ll += self.fetchChoiceProbabilities()
+
                 self.agent.collectReward(self.env)
                 self.agent.checkForTermination(self.env)
 
@@ -119,8 +125,11 @@ class Simulation():
 
             t += 1
 
-            print("completed trial", self.trialNum,
-                  "in", self.agent.stepCounter, "steps")
+            # print("completed trial", self.trialNum,
+            #       "in", self.agent.stepCounter, "steps")
+
+        if fitting:
+            return(ll)
 
     def setupAgent(self, agentParams):
         options = defineOptions(
@@ -167,6 +176,37 @@ class Simulation():
         #     self.data["goalSide"] = G_side
         #     self.data["actionHistory"] = []
         #     self.data["stateHistory"] = []
+
+    def fetchChoiceProbabilities(self):
+        stateInitialised = \
+            self.agent.activeOptions[0]["stateInitialised"]["label"]
+
+        if self.agent.representsHistory:
+            Q = self.agent.Q[self.agent.s_origin["label"]]
+            level, options = 0, list(self.agent.options.keys())
+            tau = self.agent.tau
+
+        else:
+            Q = self.agent.Q
+            level, options = \
+                self.agent.findHighestLevelOptions(self.env, stateInitialised)
+            tau = self.agent.taus[level]
+
+        controlOption = self.agent.activeOptions[0]["label"]
+
+        Q = Q.loc[options, stateInitialised].dropna()
+        Q = softmax(Q, tau)
+
+        try:
+            choiceProbability = Q.loc[controlOption, ]
+        except KeyError:
+            choiceProbability = 0.05 * 1/3  # FIX THIS
+
+        # print(f"probability of selecting {controlOption} from " +
+        #       f"{stateInitialised} was {choiceProbability}; " +
+        #       f"(log(p) = {np.log(choiceProbability)})")
+
+        return(np.log(choiceProbability))
 
     def recordOption(self):
         self.data["actionHistory"].append(self.agent.terminatedOption["label"])

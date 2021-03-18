@@ -66,6 +66,15 @@ class Agent():
 
             if "structured" in self.selectionPolicy:
                 self.beta = params["beta"]
+
+                optLevels = np.unique(
+                    [o.level for o in self.options.values()]
+                )
+
+                self.taus = self.tau * \
+                    self.beta ** (max(optLevels) - optLevels)
+
+                # print(self.alpha, self.taus)
             else:
                 self.beta = "NA"
 
@@ -177,21 +186,15 @@ class Agent():
         # 2cd. structured-/softmax selection
         elif "softmax" in self.selectionPolicy:
             if "structured" in self.selectionPolicy:
-                optLevels = np.unique(
-                    [o.level for o in self.options.values()]
-                )
-
-                taus = self.tau * \
-                    self.beta ** (max(optLevels) - optLevels)
-                tau = taus[level]
+                tau = self.taus[level]
 
                 if self.talkative:
                     print("selecting option from level", level,
                           "with temperature", tau)
             else:
-                Q_sa = Q_sa.dropna()
                 tau = self.tau
 
+            Q_sa = Q_sa.dropna()
             Q_sa = softmax(Q_sa, tau)
 
             choice = Q_sa.sample(weights=Q_sa).index[0]
@@ -229,8 +232,11 @@ class Agent():
         if isinstance(self.options[choice], PrimitiveAction) is False:
             self.findOption(env)
 
-    def findHighestLevelOptions(self, env):
-        Q_s = self.Q.loc[:, env.state["label"]]
+    def findHighestLevelOptions(self, env, state=None):
+        if state is None:
+            state = env.state["label"]
+
+        Q_s = self.Q.loc[:, state]
         Q_s = Q_s.dropna()
         optsAvailable = Q_s.index.tolist()
 
