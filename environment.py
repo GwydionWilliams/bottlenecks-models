@@ -37,7 +37,7 @@ class Environment():
         if self.state["label"] == "VL" and action == "NE":
             self.state["coords"][2] = 1
         elif self.state["coords"][0:2] == self.origin["coords"][0:2]:
-            self.state["coords"][2] = 1
+            self.state["coords"][2] = self.origin["coords"][2]
         else:
             self.state["coords"][2] = 0
 
